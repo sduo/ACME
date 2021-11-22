@@ -1,0 +1,66 @@
+# 通过 ACME 申请 Let's Encrypt 泛域名证书
+
+name: ACME
+on:
+  # 计划任务：https://crontab.guru/
+  schedule:
+    - cron: "16 18 15 * *"
+  # 手动触发
+  workflow_dispatch:
+env:
+  ACME_DOMAIN: ${{secrets.ACME_DOMAIN}}
+  ACME_ACCOUNT_EMAIL: ${{secrets.ACME_ACCOUNT_EMAIL}}
+  ACME_SERVER: letsencrypt
+  ACME_ACCOUNT_KEY_LENGTH: 4096  
+  ACME_DAYS: 45
+  ACME_DNS: dns_cf
+  ACME_DNS_SLEEP: 30
+  ACME_DNS_CONFIGURATION: ${{secrets.ACME_DNS_CONFIGURATION}}
+  ACME_RSA_KEY_LENGTH: 4096
+  ACME_ECC_KEY_LENGTH: ec-384  
+  OSS_UTIL_URL: http://gosspublic.alicdn.com/ossutil/1.7.7/ossutil64
+  OSS_ENDPOINT: ${{secrets.OSS_ENDPOINT}}
+  OSS_AK: ${{secrets.OSS_AK}}
+  OSS_SK: ${{secrets.OSS_SK}}
+  OSS_BUCKET: ${{secrets.OSS_BUCKET}}
+jobs:
+  ACME:
+    runs-on: ubuntu-latest
+    steps:
+      - name: '检出 acmesh-official/acme.sh 仓库'      
+        uses: actions/checkout@v2
+        with:
+          repository: acmesh-official/acme.sh
+          path: acme.sh
+          submodules: true
+      - name: '安装 acme.sh 脚本'
+        run: |
+          cd ${GITHUB_WORKSPACE}/acme.sh
+          ./acme.sh --install --no-color --nocron --noprofile --accountemail ${ACME_ACCOUNT_EMAIL} --accountkeylength ${ACME_ACCOUNT_KEY_LENGTH}
+          cd ${GITHUB_WORKSPACE}
+          echo "${HOME}/.acme.sh" >> ${GITHUB_PATH}
+      - name: '检查 acme.sh 版本'
+        run: acme.sh --version
+      - name: '导入 acme.sh 配置'
+        run: echo "${ACME_DNS_CONFIGURATION}" >> ${GITHUB_ENV} 
+      - name: '申请 RSA 证书'
+        run: acme.sh --issue --server ${ACME_SERVER} --log --no-color --force --ocsp --days ${ACME_DAYS} --dns ${ACME_DNS} --dnssleep ${ACME_DNS_SLEEP} --keylength ${ACME_RSA_KEY_LENGTH} --domain *.${ACME_DOMAIN} --domain ${ACME_DOMAIN}
+      - name: '申请 ECC 证书'
+        run: acme.sh --issue --server ${ACME_SERVER} --log --no-color --force --ocsp --days ${ACME_DAYS} --dns ${ACME_DNS} --dnssleep ${ACME_DNS_SLEEP} --keylength ${ACME_ECC_KEY_LENGTH} --domain *.${ACME_DOMAIN} --domain ${ACME_DOMAIN}
+      - name: '准备发布'
+        run: mkdir --parents ${GITHUB_WORKSPACE}/${ACME_DOMAIN}     
+      - name: '复制 RSA 证书'
+        run: acme.sh --install-cert --no-color --domain *.${ACME_DOMAIN} --key-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/rsa.${ACME_DOMAIN}.key.pem --fullchain-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/rsa.${ACME_DOMAIN}.fullchain.pem
+      - name: '复制 ECC 证书'
+        run: acme.sh --install-cert --no-color --ecc --domain *.${ACME_DOMAIN} --key-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/ecc.${ACME_DOMAIN}.key.pem --fullchain-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/ecc.${ACME_DOMAIN}.fullchain.pem
+      - name: '打包证书'
+        run: zip --junk-paths ${GITHUB_WORKSPACE}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/*.pem
+      - name: '安装 OSS 组件'        
+        run: |
+          wget ${OSS_UTIL_URL}
+          chmod 755 ossutil64
+          ./ossutil64 config --endpoint ${OSS_ENDPOINT} --access-key-id ${OSS_AK} --access-key-secret ${OSS_SK}
+      - name: '上传证书'
+        run: |
+          ./ossutil64 cp ${GITHUB_WORKSPACE}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip oss://${OSS_BUCKET}/acme/${ACME_DOMAIN}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip
+          ./ossutil64 create-symlink oss://${OSS_BUCKET}/acme/${ACME_DOMAIN}.zip oss://${OSS_BUCKET}/acme/${ACME_DOMAIN}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip
