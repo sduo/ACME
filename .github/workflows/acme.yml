@@ -50,9 +50,9 @@ jobs:
       - name: '准备发布'
         run: mkdir --parents ${GITHUB_WORKSPACE}/${ACME_DOMAIN}     
       - name: '复制 RSA 证书'
-        run: acme.sh --install-cert --no-color --domain *.${ACME_DOMAIN} --key-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/rsa.${ACME_DOMAIN}.key.pem --fullchain-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/rsa.${ACME_DOMAIN}.fullchain.pem
+        run: acme.sh --install-cert --no-color --domain *.${ACME_DOMAIN} --key-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/rsa.${ACME_DOMAIN}.key.pem --cert-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/rsa.${ACME_DOMAIN}.cert.pem --fullchain-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/rsa.${ACME_DOMAIN}.fullchain.pem
       - name: '复制 ECC 证书'
-        run: acme.sh --install-cert --no-color --ecc --domain *.${ACME_DOMAIN} --key-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/ecc.${ACME_DOMAIN}.key.pem --fullchain-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/ecc.${ACME_DOMAIN}.fullchain.pem
+        run: acme.sh --install-cert --no-color --ecc --domain *.${ACME_DOMAIN} --key-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/ecc.${ACME_DOMAIN}.key.pem --cert-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/ecc.${ACME_DOMAIN}.cert.pem --fullchain-file ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/ecc.${ACME_DOMAIN}.fullchain.pem
       - name: '打包证书'
         run: zip --junk-paths ${GITHUB_WORKSPACE}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip ${GITHUB_WORKSPACE}/${ACME_DOMAIN}/*.pem
       - name: '安装 OSS 组件'        
