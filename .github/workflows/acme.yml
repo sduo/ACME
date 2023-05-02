@@ -18,7 +18,6 @@ env:
   ACME_DNS_CONFIGURATION: ${{secrets.ACME_DNS_CONFIGURATION}}
   ACME_RSA_KEY_LENGTH: 4096
   ACME_ECC_KEY_LENGTH: ec-384  
-  OSS_UTIL_URL: http://gosspublic.alicdn.com/ossutil/1.7.7/ossutil64
   OSS_ENDPOINT: ${{secrets.OSS_ENDPOINT}}
   OSS_AK: ${{secrets.OSS_AK}}
   OSS_SK: ${{secrets.OSS_SK}}
@@ -28,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: '检出 acmesh-official/acme.sh 仓库'      
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: acmesh-official/acme.sh
           path: acme.sh
@@ -43,6 +42,12 @@ jobs:
         run: acme.sh --version
       - name: '导入 acme.sh 配置'
         run: echo "${ACME_DNS_CONFIGURATION}" >> ${GITHUB_ENV} 
+      - name: '安装 OSS 组件'        
+        run: curl https://gosspublic.alicdn.com/ossutil/install.sh | sudo bash
+      - name: '检查 OSS 组件'
+        run:  ossutil --version
+      - name: '配置 OSS 组件'
+        run: ossutil config --endpoint ${OSS_ENDPOINT} --access-key-id ${OSS_AK} --access-key-secret ${OSS_SK}
       - name: '申请 RSA 证书'
         run: acme.sh --issue --server ${ACME_SERVER} --log --no-color --force --ocsp --days ${ACME_DAYS} --dns ${ACME_DNS} --dnssleep ${ACME_DNS_SLEEP} --keylength ${ACME_RSA_KEY_LENGTH} --domain *.${ACME_DOMAIN} --domain ${ACME_DOMAIN}
       - name: '申请 ECC 证书'
@@ -62,5 +67,5 @@ jobs:
           ./ossutil64 config --endpoint ${OSS_ENDPOINT} --access-key-id ${OSS_AK} --access-key-secret ${OSS_SK}
       - name: '上传证书'
         run: |
-          ./ossutil64 cp ${GITHUB_WORKSPACE}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip oss://${OSS_BUCKET}/acme/${ACME_DOMAIN}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip
-          ./ossutil64 create-symlink oss://${OSS_BUCKET}/acme/${ACME_DOMAIN}.zip oss://${OSS_BUCKET}/acme/${ACME_DOMAIN}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip
+          ossutil cp ${GITHUB_WORKSPACE}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip oss://${OSS_BUCKET}/acme/${ACME_DOMAIN}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip
+          ossutil create-symlink oss://${OSS_BUCKET}/acme/${ACME_DOMAIN}.zip oss://${OSS_BUCKET}/acme/${ACME_DOMAIN}/${ACME_DOMAIN}.${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}.zip
